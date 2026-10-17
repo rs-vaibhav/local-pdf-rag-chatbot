@@ -30,6 +30,12 @@ class RetrieverWithRerank:
         self.embedder = EmbeddingModel(model_name=embedding_model)
         self.reranker = CrossEncoder(reranker_model)
     
+    def _extract_chunk_info(self, idx: int) -> Tuple[str, str]:
+        item = self.chunks[idx]
+        if isinstance(item, dict):
+            return item.get('text', ''), item.get('source', '')
+        return str(item), ''
+
     def search(self, query: str, top_k: int = 5, 
                rerank_top_k: int = 10) -> List[Dict]:
         """
@@ -57,7 +63,7 @@ class RetrieverWithRerank:
         
         # Prepare pairs for reranking
         query_chunk_pairs = [
-            [query, self.chunks[idx]] 
+            [query, self._extract_chunk_info(idx)[0]] 
             for idx in initial_top_k_indices
         ]
         
@@ -71,12 +77,16 @@ class RetrieverWithRerank:
         results = []
         for idx in reranked_indices:
             original_idx = initial_top_k_indices[idx]
-            results.append({
-                'text': self.chunks[original_idx],
+            text, source = self._extract_chunk_info(original_idx)
+            result = {
+                'text': text,
                 'similarity_score': float(similarities[original_idx]),
                 'rerank_score': float(rerank_scores[idx]),
                 'chunk_id': int(original_idx)
-            })
+            }
+            if source:
+                result['source'] = source
+            results.append(result)
         
         return results
     
@@ -106,11 +116,15 @@ class RetrieverWithRerank:
         # Prepare results
         results = []
         for idx in top_k_indices:
-            results.append({
-                'text': self.chunks[idx],
+            text, source = self._extract_chunk_info(idx)
+            result = {
+                'text': text,
                 'similarity_score': float(similarities[idx]),
                 'chunk_id': int(idx)
-            })
+            }
+            if source:
+                result['source'] = source
+            results.append(result)
         
         return results
     

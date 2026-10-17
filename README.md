@@ -84,7 +84,18 @@ local-pdf-rag-chatbot/
 
 ## Usage
 
-### Running the Application
+### Option 1: Terminal Mode (CLI)
+
+Run directly in your terminal:
+```bash
+# Chat with multiple PDFs:
+python cli.py --pdf doc1.pdf doc2.pdf
+
+# Or run interactively (will prompt for files):
+python cli.py
+```
+
+### Option 2: Web Interface (Streamlit)
 
 1. Start the Streamlit app:
    ```bash
@@ -93,9 +104,9 @@ local-pdf-rag-chatbot/
 
 2. Open your browser and navigate to `http://localhost:8501`
 
-3. Upload PDF documents using the file uploader
+3. Upload one or more PDF documents using the multi-file uploader
 
-4. Start chatting with your documents!
+4. Start chatting across all your documents!
 
 ### Programmatic Usage
 

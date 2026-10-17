@@ -25,7 +25,12 @@ class LLMGenerator:
         """Check if the specified model is available in Ollama."""
         try:
             models = ollama.list()
-            model_names = [m['name'] for m in models['models']]
+            model_list = models.get('models', []) if isinstance(models, dict) else getattr(models, 'models', [])
+            model_names = []
+            for m in model_list:
+                name = m.get('model') or m.get('name') if isinstance(m, dict) else (getattr(m, 'model', None) or getattr(m, 'name', None))
+                if name:
+                    model_names.append(str(name))
             
             if not any(self.model in name for name in model_names):
                 print(f"Warning: Model '{self.model}' not found in Ollama.")
@@ -33,6 +38,23 @@ class LLMGenerator:
         except Exception as e:
             print(f"Warning: Could not check model availability: {e}")
     
+    def _build_prompt(self, query: str, context: List[Dict]) -> str:
+        """Build context-grounded prompt for the LLM."""
+        context_items = []
+        for chunk in context:
+            prefix = f"[Source: {chunk['source']}]\n" if chunk.get('source') else ""
+            context_items.append(f"{prefix}{chunk['text']}")
+        context_text = "\n\n".join(context_items)
+
+        return f"""You are a helpful assistant answering questions based on the provided context. Use only the information from the context to answer the question. If the answer cannot be found in the context, say so.
+
+Context:
+{context_text}
+
+Question: {query}
+
+Answer:"""
+
     def generate(self, query: str, context: List[Dict], 
                  max_tokens: int = 512, temperature: float = 0.7) -> str:
         """
@@ -47,19 +69,7 @@ class LLMGenerator:
         Returns:
             Generated response string
         """
-        # Build prompt with context
-        context_text = "\n\n".join([chunk['text'] for chunk in context])
-        
-        prompt = f"""You are a helpful assistant answering questions based on the provided context. Use only the information from the context to answer the question. If the answer cannot be found in the context, say so.
-
-Context:
-{context_text}
-
-Question: {query}
-
-Answer:"""
-        
-        # Generate response using Ollama
+        prompt = self._build_prompt(query, context)
         try:
             response = ollama.chat(
                 model=self.model,
@@ -69,9 +79,7 @@ Answer:"""
                     'temperature': temperature
                 }
             )
-            
             return response['message']['content']
-        
         except Exception as e:
             return f"Error generating response: {str(e)}"
     
@@ -89,19 +97,7 @@ Answer:"""
         Yields:
             Chunks of generated text
         """
-        # Build prompt with context
-        context_text = "\n\n".join([chunk['text'] for chunk in context])
-        
-        prompt = f"""You are a helpful assistant answering questions based on the provided context. Use only the information from the context to answer the question. If the answer cannot be found in the context, say so.
-
-Context:
-{context_text}
-
-Question: {query}
-
-Answer:"""
-        
-        # Stream response using Ollama
+        prompt = self._build_prompt(query, context)
         try:
             stream = ollama.chat(
                 model=self.model,
@@ -112,11 +108,9 @@ Answer:"""
                 },
                 stream=True
             )
-            
             for chunk in stream:
                 if 'message' in chunk and 'content' in chunk['message']:
                     yield chunk['message']['content']
-        
         except Exception as e:
             yield f"Error generating response: {str(e)}"
     
